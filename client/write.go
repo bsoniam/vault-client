@@ -6,15 +6,15 @@ import (
 	"gopkg.in/h2non/gentleman.v2/plugins/body"
 	"gopkg.in/h2non/gentleman.v2/plugins/bodytype"
 	//"github.com/hashicorp/vault/helper/jsonutil"
-	"fmt"
-	"encoding/json"
 	"bytes"
-	"io"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 )
 
 // write in Vault the data on the path, given the access token
-func (c *client) Write(path string, data map[string]interface{}, token string) (*vault.Secret, error){
+func (c *client) Write(path string, data map[string]interface{}, token string) (*vault.Secret, error) {
 
 	c.httpclient.Use(body.JSON(data))
 	c.httpclient.Use(bodytype.Type("json"))
@@ -22,28 +22,26 @@ func (c *client) Write(path string, data map[string]interface{}, token string) (
 	var req *gentlemen.Request
 	req = c.httpclient.Post()
 	req.Path("/v1/" + path)
-	req.SetHeader("X-Vault-Token",token)
+	req.SetHeader("X-Vault-Token", token)
 
-    // make the request
-	resp, err:= req.Do()
+	// make the request
+	resp, err := req.Do()
 
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
-
-	if resp.Error != nil{
+	if resp.Error != nil {
 		return nil, resp.Error
 	}
 
-
-    // check if we have an error
+	// check if we have an error
 	if (resp.StatusCode >= 200 && resp.StatusCode < 400) || resp.StatusCode == 429 {
 		// we have no error
 		var body vault.Secret
-		errJSon := resp.JSON(&body)
-		if  errJSon != nil{
-			return nil, errJSon
+		errJSON := resp.JSON(&body)
+		if errJSON != nil {
+			return nil, errJSON
 		}
 		return &body, nil
 	}
@@ -55,17 +53,16 @@ func (c *client) Write(path string, data map[string]interface{}, token string) (
 	}
 
 	var errorMsgs []string
-	errJSon := json.Unmarshal(bodyBuf.Bytes(), &errorMsgs)
-	if  errJSon != nil{
+	errJSON := json.Unmarshal(bodyBuf.Bytes(), &errorMsgs)
+	if errJSON != nil {
 		return nil, errors.New(bodyBuf.String())
 	}
 
 	// we could not decode : write the errors in a raw format
 	var errBody bytes.Buffer
-	for _,errMsg := range errorMsgs{
+	for _, errMsg := range errorMsgs {
 		errBody.WriteString(fmt.Sprintf("* %s", errMsg))
 	}
 	return nil, fmt.Errorf(errBody.String())
 
 }
-

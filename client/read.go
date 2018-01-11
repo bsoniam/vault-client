@@ -1,48 +1,47 @@
 package client
 
 import (
-	vault "github.com/hashicorp/vault/api"
-	gentlemen "gopkg.in/h2non/gentleman.v2"
+	"bytes"
 	"encoding/json"
 	"errors"
-	"bytes"
-	"io"
 	"fmt"
+	"io"
+
+	vault "github.com/hashicorp/vault/api"
+	gentlemen "gopkg.in/h2non/gentleman.v2"
 )
 
 // read from Vault on the path, given the access token
-func (c *client) Read(path string, token string) (*vault.Secret, error){
+func (c *client) Read(path string, token string) (*vault.Secret, error) {
 	var req *gentlemen.Request
 	req = c.httpclient.Get()
-	req.Path("/v1/"+path)
+	req.Path("/v1/" + path)
 	req.SetHeader("X-Vault-Token", token)
 
 	resp, err := req.Do()
 
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
-	if resp.Error != nil{
+	if resp.Error != nil {
 		return nil, resp.Error
 	}
-
 
 	// check if we have an error
 	if (resp.StatusCode >= 200 && resp.StatusCode < 400) || resp.StatusCode == 429 {
 		// we have no error
 		var body vault.Secret
-		errJSon := resp.JSON(&body)
-		if  errJSon != nil{
-			return nil, errJSon
+		errJSON := resp.JSON(&body)
+		if errJSON != nil {
+			return nil, errJSON
 		}
 		return &body, nil
 	}
 
-	if resp.RawResponse.Body != nil && resp.StatusCode == 404{
+	if resp.RawResponse.Body != nil && resp.StatusCode == 404 {
 		return nil, nil
 	}
-
 
 	// we have an error : store it in the buffer and try to decode it
 	var bodyBuf bytes.Buffer
@@ -51,14 +50,14 @@ func (c *client) Read(path string, token string) (*vault.Secret, error){
 	}
 
 	var errorMsgs []string
-	errJSon := json.Unmarshal(bodyBuf.Bytes(), &errorMsgs)
-	if  errJSon != nil{
+	errJSON := json.Unmarshal(bodyBuf.Bytes(), &errorMsgs)
+	if errJSON != nil {
 		return nil, errors.New(bodyBuf.String())
 	}
 
 	// we could not decode : write the errors in a raw format
 	var errBody bytes.Buffer
-	for _,errMsg := range errorMsgs{
+	for _, errMsg := range errorMsgs {
 		errBody.WriteString(fmt.Sprintf("* %s", errMsg))
 	}
 	return nil, fmt.Errorf(errBody.String())
